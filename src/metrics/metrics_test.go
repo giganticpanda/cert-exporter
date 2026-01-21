@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"testing"
-
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -85,28 +85,29 @@ func TestMetricsNamespace(t *testing.T) {
 func TestMetricsDefinitions(t *testing.T) {
 	// Test that all metric variables are defined and not nil
 	metrics := map[string]interface{}{
-		"Discovered":                    Discovered,
-		"ErrorTotal":                    ErrorTotal,
-		"CertExpirySeconds":             CertExpirySeconds,
-		"CertNotAfterTimestamp":         CertNotAfterTimestamp,
-		"CertNotBeforeTimestamp":        CertNotBeforeTimestamp,
-		"KubeConfigExpirySeconds":       KubeConfigExpirySeconds,
-		"KubeConfigNotAfterTimestamp":   KubeConfigNotAfterTimestamp,
-		"KubeConfigNotBeforeTimestamp":  KubeConfigNotBeforeTimestamp,
-		"SecretExpirySeconds":           SecretExpirySeconds,
-		"SecretNotAfterTimestamp":       SecretNotAfterTimestamp,
-		"SecretNotBeforeTimestamp":      SecretNotBeforeTimestamp,
-		"CertRequestExpirySeconds":      CertRequestExpirySeconds,
-		"CertRequestNotAfterTimestamp":  CertRequestNotAfterTimestamp,
-		"CertRequestNotBeforeTimestamp": CertRequestNotBeforeTimestamp,
-		"AwsCertExpirySeconds":          AwsCertExpirySeconds,
-		"ConfigMapExpirySeconds":        ConfigMapExpirySeconds,
-		"ConfigMapNotAfterTimestamp":    ConfigMapNotAfterTimestamp,
-		"ConfigMapNotBeforeTimestamp":   ConfigMapNotBeforeTimestamp,
-		"WebhookExpirySeconds":          WebhookExpirySeconds,
-		"WebhookNotAfterTimestamp":      WebhookNotAfterTimestamp,
-		"WebhookNotBeforeTimestamp":     WebhookNotBeforeTimestamp,
-	}
+		"BuildInfo":			                 BuildInfo,
+    "Discovered":                      Discovered,
+    "ErrorTotal":                      ErrorTotal,
+		"CertExpirySeconds":               CertExpirySeconds,
+		"CertNotAfterTimestamp":           CertNotAfterTimestamp,
+		"CertNotBeforeTimestamp":          CertNotBeforeTimestamp,
+		"KubeConfigExpirySeconds":         KubeConfigExpirySeconds,
+		"KubeConfigNotAfterTimestamp":     KubeConfigNotAfterTimestamp,
+		"KubeConfigNotBeforeTimestamp":    KubeConfigNotBeforeTimestamp,
+		"SecretExpirySeconds":             SecretExpirySeconds,
+		"SecretNotAfterTimestamp":         SecretNotAfterTimestamp,
+		"SecretNotBeforeTimestamp":        SecretNotBeforeTimestamp,
+		"CertRequestExpirySeconds":        CertRequestExpirySeconds,
+		"CertRequestNotAfterTimestamp":    CertRequestNotAfterTimestamp,
+		"CertRequestNotBeforeTimestamp":   CertRequestNotBeforeTimestamp,
+		"AwsCertExpirySeconds":            AwsCertExpirySeconds,
+		"ConfigMapExpirySeconds":          ConfigMapExpirySeconds,
+		"ConfigMapNotAfterTimestamp":      ConfigMapNotAfterTimestamp,
+		"ConfigMapNotBeforeTimestamp":     ConfigMapNotBeforeTimestamp,
+		"WebhookExpirySeconds":            WebhookExpirySeconds,
+		"WebhookNotAfterTimestamp":        WebhookNotAfterTimestamp,
+		"WebhookNotBeforeTimestamp":       WebhookNotBeforeTimestamp,
+  }
 
 	for name, metric := range metrics {
 		if metric == nil {
@@ -419,6 +420,47 @@ func TestWebhookNotBeforeTimestampLabels(t *testing.T) {
 	}
 	gauge.Set(1704067200)
 }
+
+func TestBuildInfo(t *testing.T) {
+	collector := BuildInfo
+	
+	// Collect build_info metric from the channel
+	ch := make(chan prometheus.Metric, 1)
+	collector.Collect(ch)
+	m := <-ch
+
+	// Write the metric data into a DTO struct
+	pb := &dto.Metric{}
+	m.Write(pb)
+
+	// Format and Log the labels to the test console
+	actualLabels := make(map[string]string)
+	t.Log("--- Labels Found in BuildInfo Collector ---")
+	for _, lp := range pb.GetLabel() {
+		t.Logf("Label: %-10s | Value: %s", lp.GetName(), lp.GetValue())
+		actualLabels[lp.GetName()] = lp.GetValue()
+	}
+	t.Log("------------------------------------")
+	
+	// Define expected labels (common build_info labels)
+	expectedLabels := []string{
+		"version",
+		"revision",
+		"branch",
+		"goversion",
+		"goarch",
+		"goos",
+		"tags",
+	}
+	// Note: Compile ldflags in goreleaser populate labels, some will be empty
+	// but we can verify each expected label exists
+	for _, expectedLabel := range expectedLabels {
+		if _, exists := actualLabels[expectedLabel]; !exists {
+			t.Errorf("Expected label %q not found in build_info metric", expectedLabel)
+		}
+	}
+}
+
 
 func TestErrorTotalCounter(t *testing.T) {
 	// Test that ErrorTotal counter can be incremented
